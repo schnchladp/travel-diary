@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel map</title>
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="map.css">
+</head>
+
+<body>
+  <!-- кнопка возврата -->
+  <a href="home.html" id="backBtn">Home</a>
+
+  <div id="box"></div>
+
+  <!-- карта -->
+  <div id="map"></div>
+
+  <!-- лупа -->
+  <div id="coordSearchBtn" class="map-control-btn">
+      <img src="look.png" alt="Search by coordinates" title="Search by coordinates">
+  </div>
+
+  <!-- модальное окно для ввода координат -->
+  <div id="coordSearchModal" class="modal">
+      <div class="modal-content">
+          <h3>Search by Coordinates</h3>
+          <p>Enter coordinates:</p>
+          
+          <div class="coord-inputs">
+              <div class="coord-input-group">
+                  <label for="coordX">Latitude (X):</label>
+                  <input type="text" id="coordX" placeholder="e.g., 54.7388">
+              </div>
+              <div class="coord-input-group">
+                  <label for="coordY">Longitude (Y):</label>
+                  <input type="text" id="coordY" placeholder="e.g., 55.9721">
+              </div>
+          </div>
+          
+          <div class="coord-examples">
+              <small>Examples: Moscow - 55.7558, 37.6173<br>New York - 40.7128, -74.0060</small>
+          </div>
+          
+          <div class="modal-buttons">
+              <button id="confirmCoordSearch" class="btn-primary">Search</button>
+              <button id="cancelCoordSearch" class="btn-secondary">Cancel</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- поиск фильтр удаление -->
+  <div id="searchBar">
+    <input type="text" id="searchInput" placeholder="Search in notes...">
+    <select id="filterCategory">
+      <option value="all">All categories</option>
+      <option value="food">Food</option>
+      <option value="walk">Walk</option>
+      <option value="study">Study</option>
+      <option value="other">Other</option>
+    </select>
+    <button id="searchBtn">Search</button>
+    <button id="resetBtn">Reset</button>
+    <button id="deleteBtn">Delete</button>
+  </div>
+
+  <!-- модальное окно подтверждения удаления -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <h3>Confirm Deletion</h3>
+      <p>Are you sure you want to delete <span id="deleteCount">0</span> selected markers?</p>
+      <div class="modal-buttons">
+        <button id="confirmDeleteBtn" class="btn-danger">Yes, Delete</button>
+        <button id="cancelDeleteBtn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- добавление места + загрузка файлов -->
+  <div id="overlay"></div>
+  <div id="placeForm">
+    <h3>Add a place</h3>
+    <input type="text" id="title" placeholder="Title">
+    <textarea id="description" placeholder="Description"></textarea>
+
+    <input type="date" id="date">
+
+    <select id="category">
+      <option value="food">Food</option>
+      <option value="walk">Walk</option>
+      <option value="study">Study</option>
+      <option value="other">Other</option>
+    </select>
+
+    <div class="file-input-wrapper">
+      <label for="photos" class="file-input-label">Choose files</label>
+      <input type="file" id="photos" class="file-input-native" multiple>
+      <span class="file-name" id="fileStatus">No files selected</span>
+    </div>
+    
+    <span class="file-name" id="fileStatus">No files selected</span>
+    <input type="text" id="coords" readonly>
+
+    <button id="saveBtn">Save</button>
+    <button id="cancelBtn">Cancel</button>
+    <button id="cancelProcessingBtn" style="display: none; background: #dc3545;">Cancel Procesing
+  </div>
+
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>
