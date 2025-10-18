@@ -1,5 +1,5 @@
 // инициализация карты
-var map = L.map('map').setView([54.7388, 55.9721], 7);
+var map = L.map('map').setView([55.7558, 37.6173], 11);
 
 // для режима удаления
 var deleteMode = false;
@@ -620,6 +620,64 @@ function processPhotosForEdit(files, markerId, markerData, title, description, d
                 var finalPhotos = [...processor.originalPhotos, ...newPhotos];
                 updateMarkerWithNewData(markerData, title, description, date, category, coords, finalPhotos);
                 
+                closeForm();
+                resetSaveButton(saveBtn);
+                currentPhotoProcessor = null;
+            }
+        }
+    }
+    
+    processNextFile();
+}
+
+// функция для обработки фото при создании новой метки
+function processPhotosForNewMarker(files, markerId, coords, title, description, date, category, coordsText, saveBtn) {
+    var photos = [];
+    var filesProcessed = 0;
+    var totalFiles = files.length;
+    var processor = currentPhotoProcessor;
+    
+    saveBtn.textContent = 'Compressing photos... 0/' + totalFiles;
+    
+    async function processNextFile() {
+        if (processor && processor.cancel) {
+            console.log('Photo processing cancelled');
+            resetSaveButton(saveBtn);
+            return;
+        }
+        
+        if (filesProcessed < totalFiles) {
+            var file = files[filesProcessed];
+            
+            try {
+                const compressedPhoto = await compressImage(file);
+                
+                if (processor && !processor.cancel) {
+                    photos.push({
+                        id: markerId,
+                        data: compressedPhoto.data,
+                        name: compressedPhoto.name,
+                        compressedSize: compressedPhoto.size,
+                        originalSize: compressedPhoto.originalSize
+                    });
+                    
+                    filesProcessed++;
+                    saveBtn.textContent = 'Compressing photos... ' + filesProcessed + '/' + totalFiles;
+                    
+                    console.log(`Photo ${filesProcessed}/${totalFiles} compressed:`, 
+                        compressedPhoto.originalSize + ' → ' + compressedPhoto.size + ' bytes');
+                    
+                    processNextFile();
+                }
+            } catch (error) {
+                console.error('Error compressing image:', error);
+                filesProcessed++;
+                processNextFile();
+            }
+        } else {
+            if (processor && !processor.cancel) {
+                console.log('All photos compressed, creating marker...');
+                createMarker(markerId, coords, title, description, date, category, coordsText, photos);
                 closeForm();
                 resetSaveButton(saveBtn);
                 currentPhotoProcessor = null;
