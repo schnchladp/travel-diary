@@ -380,7 +380,8 @@ function editMarker(markerId) {
     document.getElementById('category').value = markerData.category;
     document.getElementById('coords').value = markerData.coords;
 
-  
+    showCurrentPhotos(markerData.photos);
+
     document.getElementById('overlay').style.display = 'block';
     document.getElementById('placeForm').style.display = 'flex';
 
@@ -388,7 +389,54 @@ function editMarker(markerId) {
     var saveBtn = document.getElementById('saveBtn');
     saveBtn.textContent = 'Update';
     saveBtn.dataset.editingId = markerId;
+    saveBtn.dataset.originalPhotos = JSON.stringify(markerData.photos || []);
 }
+
+// функция показа текущих фото
+function showCurrentPhotos(photos) {
+    var currentPhotosSection = document.getElementById('currentPhotosSection');
+    var currentPhotosList = document.getElementById('currentPhotosList');
+    
+    currentPhotosList.innerHTML = '';
+    
+    if (photos && photos.length > 0) {
+        currentPhotosSection.style.display = 'block';
+        
+        photos.forEach((photo, index) => {
+            var photoItem = document.createElement('div');
+            photoItem.className = 'current-photo-item';
+            photoItem.innerHTML = `
+                <img src="${photo.data}" alt="${photo.name}" class="current-photo-thumb">
+                <span class="current-photo-name">${photo.name}</span>
+                <button type="button" class="remove-photo-btn" data-index="${index}">×</button>
+            `;
+            currentPhotosList.appendChild(photoItem);
+        });
+        
+        // обработчики для кнопок удаления
+        document.querySelectorAll('.remove-photo-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                var index = parseInt(this.getAttribute('data-index'));
+                removePhotoFromEdit(index);
+            });
+        });
+    } else {
+        currentPhotosSection.style.display = 'none';
+    }
+}
+
+// функция удаления фото в режиме редактирования
+function removePhotoFromEdit(index) {
+    var saveBtn = document.getElementById('saveBtn');
+    var originalPhotos = JSON.parse(saveBtn.dataset.originalPhotos || '[]');
+    
+    // удаляем фото из массива
+    originalPhotos.splice(index, 1);
+    saveBtn.dataset.originalPhotos = JSON.stringify(originalPhotos);
+    
+    showCurrentPhotos(originalPhotos);
+}
+
 
 // обработчик для Enter в поле поиска
 document.getElementById('searchInput').addEventListener('keypress', function(e) {
@@ -456,23 +504,37 @@ document.getElementById('saveBtn').addEventListener('click', function() {
         var markerData = markersData.find(m => m.id === markerId);
 
         if (markerData) {
-            markerData.title = title;
-            markerData.description = description;
-            markerData.date = date;
-            markerData.category = category;
-            markerData.coords = coords;
+            // Получаем оригинальные фото (возможно, уже отредактированные - удалены некоторые)
+            var originalPhotos = JSON.parse(saveBtn.dataset.originalPhotos || '[]');
+            
+            var saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Processing...';
 
-            // обновление popup
-            var popupContent = generatePopupContent(markerId, title, description, date, category, coords, markerData.photos);
-            markerData.marker.setPopupContent(popupContent);
+            var files = photosInput.files;
+            
+            if (files.length > 0) {
+                // Есть новые фото для обработки
+                if (currentPhotoProcessor) {
+                    currentPhotoProcessor.cancel = true;
+                }
+                
+                currentPhotoProcessor = {
+                    cancel: false,
+                    markerId: markerId,
+                    isEditMode: true,
+                    originalPhotos: originalPhotos
+                };
+                
+                processPhotosForEdit(files, markerId, markerData, title, description, date, category, coords, saveBtn);
+            } else {
+                // Нет новых фото, просто обновляем данные
+                updateMarkerWithNewData(markerData, title, description, date, category, coords, originalPhotos);
+                closeForm();
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Update';
+            }
         }
-
-        saveMarkersToStorage();
-        closeForm();
-
-        // сброс кнопки
-        saveBtn.textContent = 'Save';
-        delete saveBtn.dataset.editingId;
         return;
     }
     
@@ -496,7 +558,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
                 markerId: markerId
             };
             
-            processPhotosAndCreateMarker(files, markerId, coordArray, title, description, date, category, coords, saveBtn);
+            processPhotosForNewMarker(files, markerId, coordArray, title, description, date, category, coords, saveBtn);
         } else {
             createMarker(markerId, coordArray, title, description, date, category, coords, []);
             closeForm();
@@ -506,14 +568,14 @@ document.getElementById('saveBtn').addEventListener('click', function() {
     }
 });
 
-// функция для обработки фото
-function processPhotosAndCreateMarker(files, markerId, coords, title, description, date, category, coordsText, saveBtn) {
-    var photos = [];
+// функция обработки фото для режима редактирования
+function processPhotosForEdit(files, markerId, markerData, title, description, date, category, coords, saveBtn) {
+    var newPhotos = [];
     var filesProcessed = 0;
     var totalFiles = files.length;
     var processor = currentPhotoProcessor;
     
-    saveBtn.textContent = 'Compressing photos... 0/' + totalFiles;
+    saveBtn.textContent = 'Compressing new photos... 0/' + totalFiles;
     
     async function processNextFile() {
         if (processor && processor.cancel) {
@@ -529,7 +591,7 @@ function processPhotosAndCreateMarker(files, markerId, coords, title, descriptio
                 const compressedPhoto = await compressImage(file);
                 
                 if (processor && !processor.cancel) {
-                    photos.push({
+                    newPhotos.push({
                         id: markerId,
                         data: compressedPhoto.data,
                         name: compressedPhoto.name,
@@ -538,9 +600,9 @@ function processPhotosAndCreateMarker(files, markerId, coords, title, descriptio
                     });
                     
                     filesProcessed++;
-                    saveBtn.textContent = 'Compressing photos... ' + filesProcessed + '/' + totalFiles;
+                    saveBtn.textContent = 'Compressing new photos... ' + filesProcessed + '/' + totalFiles;
                     
-                    console.log(`Photo ${filesProcessed}/${totalFiles} compressed:`, 
+                    console.log(`New photo ${filesProcessed}/${totalFiles} compressed:`, 
                         compressedPhoto.originalSize + ' → ' + compressedPhoto.size + ' bytes');
                     
                     processNextFile();
@@ -552,8 +614,12 @@ function processPhotosAndCreateMarker(files, markerId, coords, title, descriptio
             }
         } else {
             if (processor && !processor.cancel) {
-                console.log('All photos compressed, creating marker...');
-                createMarker(markerId, coords, title, description, date, category, coordsText, photos);
+                console.log('All new photos compressed, updating marker...');
+                
+                // Объединяем старые фото (которые не были удалены) с новыми
+                var finalPhotos = [...processor.originalPhotos, ...newPhotos];
+                updateMarkerWithNewData(markerData, title, description, date, category, coords, finalPhotos);
+                
                 closeForm();
                 resetSaveButton(saveBtn);
                 currentPhotoProcessor = null;
@@ -562,6 +628,23 @@ function processPhotosAndCreateMarker(files, markerId, coords, title, descriptio
     }
     
     processNextFile();
+}
+
+// функция обновления данных маркера
+function updateMarkerWithNewData(markerData, title, description, date, category, coords, photos) {
+    markerData.title = title;
+    markerData.description = description;
+    markerData.date = date;
+    markerData.category = category;
+    markerData.coords = coords;
+    markerData.photos = photos;
+
+    // обновление popup
+    var popupContent = generatePopupContent(markerData.id, title, description, date, category, coords, photos);
+    markerData.marker.setPopupContent(popupContent);
+
+    saveMarkersToStorage();
+    console.log('Marker updated:', title, 'with', photos.length, 'photos');
 }
 
 // функция сброса кнопки сохранения
@@ -583,6 +666,10 @@ function closeForm() {
     document.getElementById('coords').value = '';
     document.getElementById('photos').value = '';
     
+    // скрываем секцию текущих фото
+    document.getElementById('currentPhotosSection').style.display = 'none';
+    document.getElementById('currentPhotosList').innerHTML = '';
+    
     // сброс текст статуса файлов
     var fileStatus = document.getElementById('fileStatus');
     if (fileStatus) {
@@ -593,6 +680,7 @@ function closeForm() {
     var saveBtn = document.getElementById('saveBtn');
     saveBtn.textContent = 'Save';
     delete saveBtn.dataset.editingId;
+    delete saveBtn.dataset.originalPhotos;
 }
 
 // функция для получения цвета иконки по категории
@@ -647,31 +735,25 @@ function generatePopupContent(markerId, title, description, date, category, coor
     var photosHtml = '';
     
     if (photos && photos.length > 0) {
-        var markerPhotos = photos.filter(function(photo) {
-            return photo.id === markerId;
+        photosHtml = `
+            <div class="popup-photos">
+                <div class="popup-photos-title">Photos:</div>
+                <div class="popup-photos-grid">
+        `;
+        
+        photos.forEach(function(photo) {
+            photosHtml += `
+                <img src="${photo.data}" 
+                     alt="${photo.name}" 
+                     class="popup-photo"
+                     onclick="openImageModal('${photo.data}')">
+            `;
         });
         
-        if (markerPhotos.length > 0) {
-            photosHtml = `
-                <div class="popup-photos">
-                    <div class="popup-photos-title">Photos:</div>
-                    <div class="popup-photos-grid">
-            `;
-            
-            markerPhotos.forEach(function(photo) {
-                photosHtml += `
-                    <img src="${photo.data}" 
-                         alt="${photo.name}" 
-                         class="popup-photo"
-                         onclick="openImageModal('${photo.data}')">
-                `;
-            });
-            
-            photosHtml += `
-                    </div>
+        photosHtml += `
                 </div>
-            `;
-        }
+            </div>
+        `;
     }
     
     return `
@@ -683,7 +765,6 @@ function generatePopupContent(markerId, title, description, date, category, coor
             <div class="popup-field"><strong>Category:</strong> ${getCategoryName(category)}</div>
             <div class="popup-field"><strong>Coordinates:</strong> ${coordsText}</div>
             ${photosHtml}
-
         </div>
     `;
 }
