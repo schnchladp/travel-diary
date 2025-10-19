@@ -504,7 +504,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
         var markerData = markersData.find(m => m.id === markerId);
 
         if (markerData) {
-            // Получаем оригинальные фото (возможно, уже отредактированные - удалены некоторые)
+            // получаем оригинальные фото (возможно, уже отредактированные - удалены некоторые)
             var originalPhotos = JSON.parse(saveBtn.dataset.originalPhotos || '[]');
             
             var saveBtn = document.getElementById('saveBtn');
@@ -528,7 +528,7 @@ document.getElementById('saveBtn').addEventListener('click', function() {
                 
                 processPhotosForEdit(files, markerId, markerData, title, description, date, category, coords, saveBtn);
             } else {
-                // Нет новых фото, просто обновляем данные
+                // нет новых фото, просто обновляем данные
                 updateMarkerWithNewData(markerData, title, description, date, category, coords, originalPhotos);
                 closeForm();
                 saveBtn.disabled = false;
@@ -616,7 +616,7 @@ function processPhotosForEdit(files, markerId, markerData, title, description, d
             if (processor && !processor.cancel) {
                 console.log('All new photos compressed, updating marker...');
                 
-                // Объединяем старые фото (которые не были удалены) с новыми
+                // объединяем старые фото (которые не были удалены) с новыми
                 var finalPhotos = [...processor.originalPhotos, ...newPhotos];
                 updateMarkerWithNewData(markerData, title, description, date, category, coords, finalPhotos);
                 
@@ -697,6 +697,10 @@ function updateMarkerWithNewData(markerData, title, description, date, category,
     markerData.coords = coords;
     markerData.photos = photos;
 
+    // обновление иконки маркера по категории
+    var newIcon = getCategoryIcon(category);
+    markerData.marker.setIcon(newIcon);
+
     // обновление popup
     var popupContent = generatePopupContent(markerData.id, title, description, date, category, coords, photos);
     markerData.marker.setPopupContent(popupContent);
@@ -704,6 +708,7 @@ function updateMarkerWithNewData(markerData, title, description, date, category,
     saveMarkersToStorage();
     console.log('Marker updated:', title, 'with', photos.length, 'photos');
 }
+
 
 // функция сброса кнопки сохранения
 function resetSaveButton(saveBtn) {
